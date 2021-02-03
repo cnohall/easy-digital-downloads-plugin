@@ -9,8 +9,25 @@ class BlockonomicsAPI
     const SET_CALLBACK_URL = 'https://www.blockonomics.co/api/update_callback';
     const GET_CALLBACKS_URL = 'https://www.blockonomics.co/api/address?&no_balance=true&only_xpub=true&get_callback=true';
 
+    const BCH_BASE_URL = 'https://bch.blockonomics.co';
+    const BCH_NEW_ADDRESS_URL = 'https://bch.blockonomics.co/api/new_address';
+    const BCH_PRICE_URL = 'https://bch.blockonomics.co/api/price';
+
     public function __construct()
+    {    
+        edd_record_gateway_error( __( 'Hejsan123', 'edd-blockonomics' ) );
+        $this->crypto = $this->get_crypto();
+    }
+
+    public function get_crypto() 
     {
+        $bch_enabled  = get_option('bch_enabled');
+
+        if ($bch_enabled  == '1'){
+            return 'bch';
+        }else{
+            return 'btc';
+        }
     }
 
 
@@ -24,7 +41,11 @@ class BlockonomicsAPI
         {
             $get_params = "?match_callback=$secret";
         }
-        $url = BlockonomicsAPI::NEW_ADDRESS_URL.$get_params;
+        if($this->crypto == 'btc'){
+            $url = BlockonomicsAPI::NEW_ADDRESS_URL.$get_params;
+        }else{
+            $url = BlockonomicsAPI::BCH_NEW_ADDRESS_URL.$get_params;            
+        }
         $response = $this->post($url, $api_key);
         if (!isset($responseObj)) $responseObj = new stdClass();
         $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
@@ -39,11 +60,16 @@ class BlockonomicsAPI
 
     public function get_price($currency)
     {
-    	$url = BlockonomicsAPI::PRICE_URL. "?currency=$currency";
+        if($this->crypto == 'btc'){
+            $url = BlockonomicsAPI::PRICE_URL. "?currency=$currency";
+        }else{
+            $url = BlockonomicsAPI::BCH_PRICE_URL. "?currency=$currency";
+        }
         $response = $this->get($url);
         return json_decode(wp_remote_retrieve_body($response))->price;
     }
 
+    //This function is not being used?
     public function get_xpubs($api_key)
     {
     	$url = BlockonomicsAPI::ADDRESS_URL;
@@ -53,7 +79,11 @@ class BlockonomicsAPI
 
     public function update_callback($api_key, $callback_url, $xpub)
     {
-    	$url = BlockonomicsAPI::SET_CALLBACK_URL;
+        if ($this->crypto == 'btc'){
+            $url = BlockonomicsAPI::SET_CALLBACK_URL;
+        }else{
+            $url = BlockonomicsAPI::BCH_SET_CALLBACK_URL;
+        }
     	$body = json_encode(array('callback' => $callback_url, 'xpub' => $xpub));
     	$response = $this->post($url, $api_key, $body);
         return json_decode(wp_remote_retrieve_body($response));
@@ -61,7 +91,11 @@ class BlockonomicsAPI
 
     public function get_callbacks($api_key)
     {
-    	$url = BlockonomicsAPI::GET_CALLBACKS_URL;
+        if ($this->crypto == 'btc'){
+            $url = BlockonomicsAPI::GET_CALLBACKS_URL;
+        }else{
+            $url = BlockonomicsAPI::BCH_GET_CALLBACKS_URL;
+        }
     	$response = $this->get($url, $api_key);
         return $response;
     }

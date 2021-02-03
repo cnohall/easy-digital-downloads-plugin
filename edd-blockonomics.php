@@ -291,6 +291,7 @@ class EDD_Blockonomics
     echo $error_message;
   }
 
+  //This function also not used?
   function update_callback_url($callback_url, $xPub, $blockonomics)
   {
     $blockonomics->update_callback(
@@ -670,6 +671,11 @@ class EDD_Blockonomics
         'name'    => $callback_refresh,
         'readonly' => true,
         'type'    => 'text'
+      ),
+      array(
+        'id'      => 'bch_enabled',
+        'name'    => __( 'BCH Enabled (Select if you want to accept Bitcoin Cash)', 'edd-blockonomics' ),
+        'type'    => 'checkbox'
       ),
       array(
         'id'      => 'edd_blockonomics_payment_countdown_time',
