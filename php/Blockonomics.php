@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * This class is responsible for communicating with the Blockonomics API
+ */
 class BlockonomicsAPI
 {
     const BASE_URL = 'https://www.blockonomics.co';
@@ -96,27 +99,24 @@ class BlockonomicsAPI
         $error_str = '';
         $error_crypto = strtoupper($crypto).' error: ';
         $response_body = json_decode(wp_remote_retrieve_body($response));
+
+        $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
+        $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
+        $callback_url = add_query_arg('secret', $callback_secret, $api_url);
+        $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
+
         if (!isset($response_body) || count($response_body) == 0)
         {
             $error_str = __($error_crypto.'You have not entered an xPub', 'edd-blockonomics');
         }
         elseif (count($response_body) == 1)
         {
-
             $response_callback = '';
             $response_address = '';
-
             if(isset($response_body[0])){
                 $response_callback = isset($response_body[0]->callback) ? $response_body[0]->callback : '';
                 $response_address = isset($response_body[0]->address) ? $response_body[0]->address : '';
             }
-            $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
-            $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
-            $callback_url = add_query_arg('secret', $callback_secret, $api_url);
-
-            // Remove http:// or https:// from urls
-            $api_url_without_schema = preg_replace('/https?:\/\//', '', $api_url);
-            $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
             $response_callback_without_schema = preg_replace('/https?:\/\//', '', $response_callback);
 
             if(!$response_callback || $response_callback == null)
@@ -154,7 +154,7 @@ class BlockonomicsAPI
     }
 
 
-    public function new_address($api_key, $secret, $reset=false)
+    public function new_address($secret, $crypto, $reset=false)
     {
         if($reset)
         {
@@ -169,6 +169,7 @@ class BlockonomicsAPI
         }else{
             $url = BlockonomicsAPI::BCH_NEW_ADDRESS_URL.$get_params;            
         }
+        $api_key = edd_get_option('edd_blockonomics_api_key');
         $response = $this->post($url, $api_key);
         if (!isset($responseObj)) $responseObj = new stdClass();
         $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
@@ -202,11 +203,12 @@ class BlockonomicsAPI
 
     public function update_callback($callback_url, $crypto, $xpub)
     {
-        if ($this->crypto == 'btc'){
+        if ($crypto == 'btc'){
             $url = BlockonomicsAPI::SET_CALLBACK_URL;
         }else{
             $url = BlockonomicsAPI::BCH_SET_CALLBACK_URL;
         }
+        $api_key = edd_get_option('edd_blockonomics_api_key');
     	$body = json_encode(array('callback' => $callback_url, 'xpub' => $xpub));
     	$response = $this->post($url, $api_key, $body);
         return json_decode(wp_remote_retrieve_body($response));

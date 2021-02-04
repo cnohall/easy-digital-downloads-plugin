@@ -222,7 +222,8 @@ class EDD_Blockonomics
       {
         $callback_secret = trim(edd_get_option('edd_blockonomics_callback_secret', ''));
         $blockonomics = new BlockonomicsAPI;
-        $responseObj = $blockonomics->new_address($api_key, $callback_secret);
+        $crypto = $blockonomics->get_crypto();
+        $responseObj = $blockonomics->new_address($callback_secret, $crypto); 
         $currency = edd_get_currency();
         if($currency == 'RIAL'){
           $currency = 'IRR';
@@ -314,7 +315,7 @@ class EDD_Blockonomics
     
     if($setup_errors)
     {
-      return __("Result=$setup_errors", 'edd-blockonomics');
+      return __($setup_errors, 'edd-blockonomics');
       display_admin_message($setup_errors, 'error');
     }
     else
