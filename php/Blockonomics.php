@@ -12,22 +12,145 @@ class BlockonomicsAPI
     const BCH_BASE_URL = 'https://bch.blockonomics.co';
     const BCH_NEW_ADDRESS_URL = 'https://bch.blockonomics.co/api/new_address';
     const BCH_PRICE_URL = 'https://bch.blockonomics.co/api/price';
+    const BCH_SET_CALLBACK_URL = 'https://bch.blockonomics.co/api/update_callback';
+    const BCH_GET_CALLBACKS_URL = 'https://bch.blockonomics.co/api/address?&no_balance=true&only_xpub=true&get_callback=true';
+
 
     public function __construct()
     {    
-        edd_record_gateway_error( __( 'Hejsan123', 'edd-blockonomics' ) );
-        $this->crypto = $this->get_crypto();
     }
 
     public function get_crypto() 
     {
-        $bch_enabled  = get_option('bch_enabled');
-
+        $bch_enabled  = edd_get_option('edd_blockonomics_bch_enabled');
         if ($bch_enabled  == '1'){
             return 'bch';
         }else{
             return 'btc';
         }
+    }
+
+    public function test_setup()
+    {
+        // Fetch the crypto to test based on the plugin settings
+        $crypto = $this->get_crypto();
+        $error_str = $this->check_callback_urls_or_set_one($crypto);
+        if (!$error_str)
+        {
+            //Everything OK ! Test address generation
+            $error_str = $this->test_new_address_gen($crypto);
+        }
+        if($error_str) {
+            // Append troubleshooting article to all errors
+            $error_str = $error_str . '<p>' . __('For more information, please consult <a href="http://help.blockonomics.co/support/solutions/articles/33000215104-unable-to-generate-new-address" target="_blank">this troubleshooting article</a>', 'edd-blockonomics'). '</p>';
+            return $error_str;
+        }
+        // No errors
+        return false;
+    }
+
+    public function test_new_address_gen($crypto)
+    {
+        $error_str = '';
+        $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
+        $error_str = $this->new_address($callback_secret, $crypto, true);
+        if ($response->response_code!=200){	
+             $error_str = $response->response_message;
+        }
+        return $error_str;
+    }
+
+    public function check_callback_urls_or_set_one($crypto) 
+    {
+        $api_key = edd_get_option('edd_blockonomics_api_key');
+        //If BCH enabled and API Key is not set: give error
+        if (!$api_key && $crypto === 'bch'){
+            $error_str = __('Set the API Key or disable BCH', 'edd-blockonomics');
+            return $error_str;
+        }
+        $response = $this->get_callbacks($crypto, $api_key);
+        //chek the current callback and detect any potential errors
+        $error_str = $this->check_get_callbacks_response_code($response, $crypto);
+        if(!$error_str){
+            //if needed, set the callback.
+            $error_str = $this->check_get_callbacks_response_body($response, $crypto);
+        }
+        return $error_str;
+    }
+
+    public function check_get_callbacks_response_code($response, $crypto){
+        $error_str = '';
+        $error_crypto = strtoupper($crypto).' error: ';
+        //TODO: Check This: WE should actually check code for timeout
+        if (!wp_remote_retrieve_response_code($response)) {
+            $error_str = __($error_crypto.'Your server is blocking outgoing HTTPS calls', 'edd-blockonomics');
+        }
+        elseif (wp_remote_retrieve_response_code($response)==401)
+            $error_str = __($error_crypto.'API Key is incorrect', 'edd-blockonomics');
+        elseif (wp_remote_retrieve_response_code($response)!=200)
+            $error_str = $error_crypto.$response->data;
+        return $error_str;
+    }
+
+    public function check_get_callbacks_response_body ($response, $crypto){
+        $error_str = '';
+        $error_crypto = strtoupper($crypto).' error: ';
+        $response_body = json_decode(wp_remote_retrieve_body($response));
+        if (!isset($response_body) || count($response_body) == 0)
+        {
+            $error_str = __($error_crypto.'You have not entered an xPub', 'edd-blockonomics');
+        }
+        elseif (count($response_body) == 1)
+        {
+
+            $response_callback = '';
+            $response_address = '';
+
+            if(isset($response_body[0])){
+                $response_callback = isset($response_body[0]->callback) ? $response_body[0]->callback : '';
+                $response_address = isset($response_body[0]->address) ? $response_body[0]->address : '';
+            }
+            $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
+            $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
+            $callback_url = add_query_arg('secret', $callback_secret, $api_url);
+
+            // Remove http:// or https:// from urls
+            $api_url_without_schema = preg_replace('/https?:\/\//', '', $api_url);
+            $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
+            $response_callback_without_schema = preg_replace('/https?:\/\//', '', $response_callback);
+
+            if(!$response_callback || $response_callback == null)
+            {
+                //No callback URL set, set one 
+                $this->update_callback($callback_url, $crypto, $response_address);
+            }
+            elseif($response_callback_without_schema != $callback_url_without_schema)
+            {
+                $base_url = get_bloginfo('wpurl');
+                $base_url = preg_replace('/https?:\/\//', '', $base_url);
+                // Check if only secret differs
+                if(strpos($response_callback, $base_url) !== false)
+                {
+                    //Looks like the user regenrated callback by mistake
+                    //Just force Update_callback on server
+                    $this->update_callback($callback_url, $crypto, $response_address);
+                }
+                else
+                {
+                    $error_str = __($error_crypto."You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
+                }
+                
+            }
+        }
+        else 
+        {
+            $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
+            // Check if callback url is set
+            foreach ($response_body as $res_obj)
+             if(preg_replace('/https?:\/\//', '', $res_obj->callback) == $callback_url_without_schema)
+                $error_str = "";
+        }  
+        return $error_str;
     }
 
 
@@ -77,7 +200,7 @@ class BlockonomicsAPI
         return json_decode(wp_remote_retrieve_body($response));
     }
 
-    public function update_callback($api_key, $callback_url, $xpub)
+    public function update_callback($callback_url, $crypto, $xpub)
     {
         if ($this->crypto == 'btc'){
             $url = BlockonomicsAPI::SET_CALLBACK_URL;
@@ -89,9 +212,9 @@ class BlockonomicsAPI
         return json_decode(wp_remote_retrieve_body($response));
     }
 
-    public function get_callbacks($api_key)
+    public function get_callbacks($crypto, $api_key)
     {
-        if ($this->crypto == 'btc'){
+        if ($crypto == 'btc'){
             $url = BlockonomicsAPI::GET_CALLBACKS_URL;
         }else{
             $url = BlockonomicsAPI::BCH_GET_CALLBACKS_URL;
