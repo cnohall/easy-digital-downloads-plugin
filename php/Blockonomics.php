@@ -164,7 +164,7 @@ class BlockonomicsAPI
         {
             $get_params = "?match_callback=$secret";
         }
-        if($this->crypto == 'btc'){
+        if($crypto == 'btc'){
             $url = BlockonomicsAPI::NEW_ADDRESS_URL.$get_params;
         }else{
             $url = BlockonomicsAPI::BCH_NEW_ADDRESS_URL.$get_params;            
@@ -184,6 +184,7 @@ class BlockonomicsAPI
 
     public function get_price($currency)
     {
+        $crypto = $this->get_crypto();
         if($this->crypto == 'btc'){
             $url = BlockonomicsAPI::PRICE_URL. "?currency=$currency";
         }else{
