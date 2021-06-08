@@ -1,17 +1,36 @@
-.form-table th {
+.form-table th 
+{
     padding: 0px 0px 15px 0px;
 }
 
-.form-table td {
+.form-table td 
+{
     padding: 0px 0px 15px 0px;
 }
 
-.header th{
+.header th
+{
     font-size: 1.5rem;
     padding: 0px 0px 15px 0px;
     text-decoration: underline;
 }
 
-.header td{
+.header td
+{
     padding: 0px 0px 15px 0px;
+}
+
+.show_advanced th a
+{
+    font-weight: bold;
+}
+
+#show_basic 
+{
+    display: none;
+}
+
+.advanced_settings 
+{
+    display: none;
 }

@@ -659,7 +659,31 @@ class EDD_Blockonomics
       };
 </script>
 ';
-
+    $show_advanced = 
+    '
+    <a id="show_advanced" href="javascript:show_advanced();">Advanced Settings &#9660;</a>
+    <a id="show_basic" href="javascript:show_basic();">Advanced Settings &#9650;</a>     
+    <script type="text/javascript">
+    const show_advanced = function() 
+    {
+      document.getElementById("show_advanced").style.display = "none";
+      document.getElementById("show_basic").style.display = "block";
+      let advanced_settings = document.getElementsByClassName("advanced_settings");
+      for (let i = 0; i<advanced_settings.length; i++){
+        advanced_settings[i].style.display = "table-row";
+      }
+    }
+    const show_basic = function() 
+    {
+      document.getElementById("show_advanced").style.display = "block";
+      document.getElementById("show_basic").style.display = "none";
+      let advanced_settings = document.getElementsByClassName("advanced_settings");
+      for (let i = 0; i<advanced_settings.length; i++){
+        advanced_settings[i].style.display = "none";
+      }
+    }
+    </script>
+    ';
     $blockonomics_settings = array(
       array(
         'id'      => 'edd_blockonomics_settings',
@@ -679,9 +703,16 @@ class EDD_Blockonomics
         'type'    => 'text'
       ),
       array(
+        'id'      => 'edd_blockonomics_show_advanced',
+        'name'    => $show_advanced,
+        'type'    => 'header',
+        'class'   => 'show_advanced'
+      ),
+      array(
         'id'      => 'edd_blockonomics_payment_countdown_time',
         'name'    => __('Time period of countdown timer on payment page (in minutes)', 'edd-blockonomics'),
         'type'    => 'select',
+        'class'  => 'advanced_settings',
         'options' => array(
           '10' => '10',
           '15' => '15',
@@ -689,11 +720,13 @@ class EDD_Blockonomics
           '25' => '25',
           '30' => '30'
         )
+
       ),
       array(
         'id'      => 'edd_blockonomics_confirmations',
         'name'    => __('Network Confirmations required for payment to complete', 'edd-blockonomics'),
         'type'    => 'select',
+        'class'  => 'advanced_settings',
         'options' => array(
           '2' => '2 (recommended)',
           '1' => '1',
@@ -750,6 +783,7 @@ function edd_testsetup_callback()
 {
   printf("");
 }
+
 
 function edd_blockonomics_init()
 {
