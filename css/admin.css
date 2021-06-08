@@ -1,0 +1,17 @@
+.form-table th {
+    padding: 0px 0px 15px 0px;
+}
+
+.form-table td {
+    padding: 0px 0px 15px 0px;
+}
+
+.header th{
+    font-size: 1.5rem;
+    padding: 0px 0px 15px 0px;
+    text-decoration: underline;
+}
+
+.header td{
+    padding: 0px 0px 15px 0px;
+}

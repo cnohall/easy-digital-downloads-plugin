@@ -538,8 +538,9 @@ class EDD_Blockonomics
 
   public function settings( $settings )
   {
+    wp_enqueue_style('bnomics-style', plugin_dir_url(__FILE__) . "css/admin.css");
     $callback_update_url = add_query_arg(array( 'edd-listener' => 'blockonomics', 'action' => 'update_callback') ,home_url());
-    $callback_refresh = __( 'CALLBACK URL', 'edd-blockonomics' ).'<a href="'.$callback_update_url.'"
+    $callback_refresh = __( 'Callback URL', 'edd-blockonomics' ).'<a href="'.$callback_update_url.'"
       id="generate-callback" style="font:400 20px/1 dashicons;margin-left: 7px; top: 4px;position:relative;text-decoration: none;" title="Generate New Callback URL">&#xf463;<a>';
 
     //$settings_page_testsetup = add_query_arg(array( 'edd-listener' => 'blockonomics', 'action' => 'test_setup') ,home_url());
@@ -661,8 +662,14 @@ class EDD_Blockonomics
 
     $blockonomics_settings = array(
       array(
+        'id'      => 'edd_blockonomics_settings',
+        'name'    => "Settings",
+        'type'    => 'Header',
+        'class'   => 'header'
+      ),
+      array(
         'id'      => 'edd_blockonomics_api_key',
-        'name'    => __( 'BLOCKONOMICS API KEY', 'edd-blockonomics' ),
+        'name'    => __( 'Blockonomics API key', 'edd-blockonomics' ),
         'type'    => 'text'
       ),
       array(
@@ -692,6 +699,22 @@ class EDD_Blockonomics
           '1' => '1',
           'zero' => '0'
         )       
+      ),
+      array(
+        'id'      => 'edd_blockonomics_currencies',
+        'name'    => "Currencies",
+        'type'    => 'Header',
+        'class'   => 'header'
+      ),
+      array(
+        'id'      => 'edd_blockonomics_btc',
+        'name'    => "Bitcoin (BTC)",
+        'type'    => 'checkbox',
+      ),
+      array(
+        'id'      => 'edd_blockonomics_bch',
+        'name'    => "Bitcoin Cash (BCH)",
+        'type'    => 'checkbox'
       ),
       array(
         'id'      => 'edd_blockonomics_testsetup',
