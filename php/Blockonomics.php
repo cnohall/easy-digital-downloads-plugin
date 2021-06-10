@@ -2,12 +2,6 @@
 
 class BlockonomicsAPI
 {
-    const BASE_URL = 'https://www.blockonomics.co';
-    const NEW_ADDRESS_URL = 'https://www.blockonomics.co/api/new_address';
-    const PRICE_URL = 'https://www.blockonomics.co/api/price';
-    const ADDRESS_URL = 'https://www.blockonomics.co/api/address?only_xpub=true&get_callback=true';
-    const SET_CALLBACK_URL = 'https://www.blockonomics.co/api/update_callback';
-    const GET_CALLBACKS_URL = 'https://www.blockonomics.co/api/address?&no_balance=true&only_xpub=true&get_callback=true';
 
     public function __construct()
     {
@@ -42,13 +36,6 @@ class BlockonomicsAPI
     	$url = BlockonomicsAPI::PRICE_URL. "?currency=$currency";
         $response = $this->get($url);
         return json_decode(wp_remote_retrieve_body($response))->price;
-    }
-
-    public function get_xpubs($api_key)
-    {
-    	$url = BlockonomicsAPI::ADDRESS_URL;
-        $response = $this->get($url, $api_key);
-        return json_decode(wp_remote_retrieve_body($response));
     }
 
     public function update_callback($api_key, $callback_url, $xpub)
