@@ -344,6 +344,19 @@ class EDD_Blockonomics
 
   private function test_one_crypto($crypto)
   {
+    $response = $this->get_callbacks($crypto);
+    $error_str = $this->check_callback_urls_or_set_one($crypto, $response);
+    if (!$error_str)
+    {
+        //Everything OK ! Test address generation
+        $error_str = $this->test_new_address_gen($crypto, $response);
+    }
+    if($error_str) {
+        return $error_str;
+    }
+    // No errors
+    return false;
+
     $api_key = edd_get_option('edd_blockonomics_api_key');
     $blockonomics = new BlockonomicsAPI;
     $response = $blockonomics->get_callbacks($api_key);
