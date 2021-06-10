@@ -134,7 +134,7 @@ class EDD_Blockonomics
       if($setup_errors)
       {
         $return->type = 'error';
-        $return->message = $setup_errors;
+        $return->message = $setup_errors['bch'];
         echo json_encode($return);
       }
       else
@@ -302,6 +302,48 @@ class EDD_Blockonomics
 
   private function testSetup()
   { 
+    $test_results = array();
+    $active_cryptos = $this->getActiveCurrencies();
+    foreach ($active_cryptos as $code => $crypto) {
+        $test_results[$code] = $this->test_one_crypto($code);
+    }
+    return $test_results;
+  }
+
+  /*
+  * Get list of active crypto currencies
+  */
+  public function getActiveCurrencies() {
+    $active_currencies = array();
+    $blockonomics_currencies = $this->getSupportedCurrencies();
+    foreach ($blockonomics_currencies as $code => $currency) {
+        $enabled = edd_get_option('edd_blockonomics_'.$code);
+        if($enabled || ($code === 'btc' && $enabled === false )){
+            $active_currencies[$code] = $currency;
+        }
+    }
+    return $active_currencies;
+  }
+  /*
+  * Get list of crypto currencies supported by Blockonomics
+  */
+  public function getSupportedCurrencies() {
+    return array(
+        'btc' => array(
+              'code' => 'btc',
+              'name' => 'Bitcoin',
+              'uri' => 'bitcoin'
+        ),
+        'bch' => array(
+              'code' => 'bch',
+              'name' => 'Bitcoin Cash',
+              'uri' => 'bitcoincash'
+        )
+    );
+  }
+
+  private function test_one_crypto($crypto)
+  {
     $api_key = edd_get_option('edd_blockonomics_api_key');
     $blockonomics = new BlockonomicsAPI;
     $response = $blockonomics->get_callbacks($api_key);
