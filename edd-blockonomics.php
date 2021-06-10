@@ -39,6 +39,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class EDD_Blockonomics
 {
+  const BASE_URL = 'https://www.blockonomics.co';
+  const BCH_BASE_URL = 'https://bch.blockonomics.co';
+
+  const NEW_ADDRESS_PATH = '/api/new_address';
+  const PRICE_PATH = '/api/price?currency=';
+  const GET_CALLBACKS_PATH = '/api/address?&no_balance=true&only_xpub=true&get_callback=true';
+  const SET_CALLBACK_PATH = '/api/update_callback';
+
   public function __construct()
   {
     if( ! function_exists( 'edd_get_option' ) )
@@ -356,81 +364,139 @@ class EDD_Blockonomics
     }
     // No errors
     return false;
+  }
 
-    $api_key = edd_get_option('edd_blockonomics_api_key');
-    $blockonomics = new BlockonomicsAPI;
-    $response = $blockonomics->get_callbacks($api_key);
+  public function get_callbacks($crypto)
+  {
+      $get_callback_url = $this->get_server_API_URL($crypto, EDD_Blockonomics::GET_CALLBACKS_PATH);
+      $response = $this->doCurlCall($get_callback_url);
+      return $response;
+  }
+
+  public function get_server_API_URL($crypto, $path)
+  {
+      $domain = ($crypto == 'btc') ? EDD_Blockonomics::BASE_URL : EDD_Blockonomics::BCH_BASE_URL;
+      return $domain . $path;
+  }
+
+  public function check_callback_urls_or_set_one($crypto, $response)
+  {
+      //check the current callback and detect any potential errors
+      $error_str = $this->check_get_callbacks_response_code($response);
+      if (!$error_str) {
+          //check callback responsebody and if needed, set the callback.
+          $error_str = $this->check_get_callbacks_response_body($response, $crypto);
+      }
+      return $error_str;
+  }
+
+  public function check_get_callbacks_response_code($response)
+  {
+      $error_str = '';
+      //TODO: Check This: WE should actually check code for timeout
+      if (!isset($response->response_code)) {
+        $error_str = __('Your server is blocking outgoing HTTPS calls', 'edd-blockonomics');
+      } elseif ($response->response_code == 401) {
+        $error_str = __('API Key is incorrect', 'edd-blockonomics');
+      } elseif ($response->response_code != 200) {
+        $error_str = $response->data;
+      }
+      return $error_str;
+  }
+
+  public function check_get_callbacks_response_body ($response, $crypto){
     $error_str = '';
     $response_body = json_decode(wp_remote_retrieve_body($response));
-    $response_callback = isset($response_body[0]) ? isset($response_body[0]->callback) ? $response_body[0]->callback : '' : '';
-    $response_address = isset($response_body[0]) ? isset($response_body[0]->address) ? $response_body[0]->address : '' : '';
-    $callback_secret = edd_get_option("edd_blockonomics_callback_secret");
-    $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
-    $callback_url = add_query_arg('secret', $callback_secret, $api_url);
-    // Remove http:// or https:// from urls
-    $api_url_without_schema = preg_replace('/https?:\/\//', '', $api_url);
-    $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
-    $response_callback_without_schema = preg_replace('/https?:\/\//', '', $response_callback);
-    //TODO: Check This: WE should actually check code for timeout
-    if (!wp_remote_retrieve_response_code($response)) {
-        $error_str = __('Your server is blocking outgoing HTTPS calls', 'edd-blockonomics');
-    }
-    elseif (wp_remote_retrieve_response_code($response)==401)
-        $error_str = __('API Key is incorrect', 'edd-blockonomics');
-    elseif (wp_remote_retrieve_response_code($response)!=200)  
-        $error_str = $response->data;
-    elseif (!isset($response_body) || count($response_body) == 0)
-    {
-        $error_str = __('You have not entered an xpub', 'edd-blockonomics');
-    }
-    elseif (count($response_body) == 1)
-    {
-        if(!$response_callback || $response_callback == null)
-        {
-          //No callback URL set, set one 
-          $blockonomics->update_callback($api_key, $callback_url, $response_address);   
-        }
-        elseif($response_callback_without_schema != $callback_url_without_schema)
-        {
-          $base_url = get_bloginfo('wpurl');
-          $base_url = preg_replace('/https?:\/\//', '', $base_url);
-          // Check if only secret differs
-          if(strpos($response_callback, $base_url) !== false)
-          {
-            //Looks like the user regenrated callback by mistake
-            //Just force Update_callback on server
-            $blockonomics->update_callback($api_key, $callback_url, $response_address);  
-          }
-          else
-          {
-            $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
-          }
-        }
-    }
-    else 
-    {
-        // Check if callback url is set
-        foreach ($response_body as $resObj)
-         if(preg_replace('/https?:\/\//', '', $resObj->callback) == $callback_url_without_schema)
-            return "";
-        $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
-    }  
-    if (!$error_str)
-    {
-        //Everything OK ! Test address generation
-        $response= $blockonomics->new_address($api_key, $callback_secret, true);
-        if ($response->response_code!=200){
-          $error_str = $response->response_message;
-        }
-    }
-    if($error_str) {
-        $error_str = $error_str . __('<p>For more information, please consult <a href="https://blockonomics.freshdesk.com/support/solutions/articles/33000215104-troubleshooting-unable-to-generate-new-address" target="_blank">this troubleshooting article</a></p>', 'edd-blockonomics');
-        return $error_str;
-    }
 
-    // No errors
-    return false;
-  }
+    //if merchant doesn't have any xPubs on his Blockonomics account
+    if (!isset($response_body) || count($response_body) == 0)
+    {
+        $error_str = __('Please add a new store on blockonomics website', 'edd-blockonomics');
+    }
+    //if merchant has at least one xPub on his Blockonomics account
+    elseif (count($response_body) >= 1)
+    {
+        $error_str = $this->examine_server_callback_urls($response_body, $crypto);
+    }
+    return $error_str;
+}
+  
+  
+  // {
+  //   $api_key = edd_get_option('edd_blockonomics_api_key');
+  //   $blockonomics = new BlockonomicsAPI;
+  //   $response = $blockonomics->get_callbacks($api_key);
+  //   $error_str = '';
+  //   $response_body = json_decode(wp_remote_retrieve_body($response));
+  //   $response_callback = isset($response_body[0]) ? isset($response_body[0]->callback) ? $response_body[0]->callback : '' : '';
+  //   $response_address = isset($response_body[0]) ? isset($response_body[0]->address) ? $response_body[0]->address : '' : '';
+  //   $callback_secret = edd_get_option("edd_blockonomics_callback_secret");
+  //   $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
+  //   $callback_url = add_query_arg('secret', $callback_secret, $api_url);
+  //   // Remove http:// or https:// from urls
+  //   $api_url_without_schema = preg_replace('/https?:\/\//', '', $api_url);
+  //   $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
+  //   $response_callback_without_schema = preg_replace('/https?:\/\//', '', $response_callback);
+  //   //TODO: Check This: WE should actually check code for timeout
+  //   if (!wp_remote_retrieve_response_code($response)) {
+  //       $error_str = __('Your server is blocking outgoing HTTPS calls', 'edd-blockonomics');
+  //   }
+  //   elseif (wp_remote_retrieve_response_code($response)==401)
+  //       $error_str = __('API Key is incorrect', 'edd-blockonomics');
+  //   elseif (wp_remote_retrieve_response_code($response)!=200)  
+  //       $error_str = $response->data;
+  //   elseif (!isset($response_body) || count($response_body) == 0)
+  //   {
+  //       $error_str = __('You have not entered an xpub', 'edd-blockonomics');
+  //   }
+  //   elseif (count($response_body) == 1)
+  //   {
+  //       if(!$response_callback || $response_callback == null)
+  //       {
+  //         //No callback URL set, set one 
+  //         $blockonomics->update_callback($api_key, $callback_url, $response_address);   
+  //       }
+  //       elseif($response_callback_without_schema != $callback_url_without_schema)
+  //       {
+  //         $base_url = get_bloginfo('wpurl');
+  //         $base_url = preg_replace('/https?:\/\//', '', $base_url);
+  //         // Check if only secret differs
+  //         if(strpos($response_callback, $base_url) !== false)
+  //         {
+  //           //Looks like the user regenrated callback by mistake
+  //           //Just force Update_callback on server
+  //           $blockonomics->update_callback($api_key, $callback_url, $response_address);  
+  //         }
+  //         else
+  //         {
+  //           $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
+  //         }
+  //       }
+  //   }
+  //   else 
+  //   {
+  //       // Check if callback url is set
+  //       foreach ($response_body as $resObj)
+  //        if(preg_replace('/https?:\/\//', '', $resObj->callback) == $callback_url_without_schema)
+  //           return "";
+  //       $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
+  //   }  
+  //   if (!$error_str)
+  //   {
+  //       //Everything OK ! Test address generation
+  //       $response= $blockonomics->new_address($api_key, $callback_secret, true);
+  //       if ($response->response_code!=200){
+  //         $error_str = $response->response_message;
+  //       }
+  //   }
+  //   if($error_str) {
+  //       $error_str = $error_str . __('<p>For more information, please consult <a href="https://blockonomics.freshdesk.com/support/solutions/articles/33000215104-troubleshooting-unable-to-generate-new-address" target="_blank">this troubleshooting article</a></p>', 'edd-blockonomics');
+  //       return $error_str;
+  //   }
+
+  //   // No errors
+  //   return false;
+  // }
 
   public function listener()
   {
