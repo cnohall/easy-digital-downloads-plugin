@@ -352,7 +352,8 @@ class EDD_Blockonomics
 
   private function test_one_crypto($crypto)
   {
-    $response = $this->get_callbacks($crypto);
+    $api_key = edd_get_option('edd_blockonomics_api_key');
+    $response = $this->get_callbacks($crypto, $api_key);
     $error_str = $this->check_callback_urls_or_set_one($crypto, $response);
     if (!$error_str)
     {
@@ -366,10 +367,10 @@ class EDD_Blockonomics
     return false;
   }
 
-  public function get_callbacks($crypto)
+  public function get_callbacks($crypto, $api_key)
   {
       $get_callback_url = $this->get_server_API_URL($crypto, EDD_Blockonomics::GET_CALLBACKS_PATH);
-      $response = $this->doCurlCall($get_callback_url);
+    	$response = $this->get($get_callback_url, $api_key);
       return $response;
   }
 
@@ -419,85 +420,80 @@ class EDD_Blockonomics
         $error_str = $this->examine_server_callback_urls($response_body, $crypto);
     }
     return $error_str;
-}
-  
-  
-  // {
-  //   $api_key = edd_get_option('edd_blockonomics_api_key');
-  //   $blockonomics = new BlockonomicsAPI;
-  //   $response = $blockonomics->get_callbacks($api_key);
-  //   $error_str = '';
-  //   $response_body = json_decode(wp_remote_retrieve_body($response));
-  //   $response_callback = isset($response_body[0]) ? isset($response_body[0]->callback) ? $response_body[0]->callback : '' : '';
-  //   $response_address = isset($response_body[0]) ? isset($response_body[0]->address) ? $response_body[0]->address : '' : '';
-  //   $callback_secret = edd_get_option("edd_blockonomics_callback_secret");
-  //   $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
-  //   $callback_url = add_query_arg('secret', $callback_secret, $api_url);
-  //   // Remove http:// or https:// from urls
-  //   $api_url_without_schema = preg_replace('/https?:\/\//', '', $api_url);
-  //   $callback_url_without_schema = preg_replace('/https?:\/\//', '', $callback_url);
-  //   $response_callback_without_schema = preg_replace('/https?:\/\//', '', $response_callback);
-  //   //TODO: Check This: WE should actually check code for timeout
-  //   if (!wp_remote_retrieve_response_code($response)) {
-  //       $error_str = __('Your server is blocking outgoing HTTPS calls', 'edd-blockonomics');
-  //   }
-  //   elseif (wp_remote_retrieve_response_code($response)==401)
-  //       $error_str = __('API Key is incorrect', 'edd-blockonomics');
-  //   elseif (wp_remote_retrieve_response_code($response)!=200)  
-  //       $error_str = $response->data;
-  //   elseif (!isset($response_body) || count($response_body) == 0)
-  //   {
-  //       $error_str = __('You have not entered an xpub', 'edd-blockonomics');
-  //   }
-  //   elseif (count($response_body) == 1)
-  //   {
-  //       if(!$response_callback || $response_callback == null)
-  //       {
-  //         //No callback URL set, set one 
-  //         $blockonomics->update_callback($api_key, $callback_url, $response_address);   
-  //       }
-  //       elseif($response_callback_without_schema != $callback_url_without_schema)
-  //       {
-  //         $base_url = get_bloginfo('wpurl');
-  //         $base_url = preg_replace('/https?:\/\//', '', $base_url);
-  //         // Check if only secret differs
-  //         if(strpos($response_callback, $base_url) !== false)
-  //         {
-  //           //Looks like the user regenrated callback by mistake
-  //           //Just force Update_callback on server
-  //           $blockonomics->update_callback($api_key, $callback_url, $response_address);  
-  //         }
-  //         else
-  //         {
-  //           $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
-  //         }
-  //       }
-  //   }
-  //   else 
-  //   {
-  //       // Check if callback url is set
-  //       foreach ($response_body as $resObj)
-  //        if(preg_replace('/https?:\/\//', '', $resObj->callback) == $callback_url_without_schema)
-  //           return "";
-  //       $error_str = __("You have an existing callback URL. Refer instructions on integrating multiple websites", 'edd-blockonomics');
-  //   }  
-  //   if (!$error_str)
-  //   {
-  //       //Everything OK ! Test address generation
-  //       $response= $blockonomics->new_address($api_key, $callback_secret, true);
-  //       if ($response->response_code!=200){
-  //         $error_str = $response->response_message;
-  //       }
-  //   }
-  //   if($error_str) {
-  //       $error_str = $error_str . __('<p>For more information, please consult <a href="https://blockonomics.freshdesk.com/support/solutions/articles/33000215104-troubleshooting-unable-to-generate-new-address" target="_blank">this troubleshooting article</a></p>', 'edd-blockonomics');
-  //       return $error_str;
-  //   }
+  }
 
-  //   // No errors
-  //   return false;
-  // }
+  // checks each existing xpub callback URL to update and/or use
+  public function examine_server_callback_urls($response_body, $crypto)
+  {
+    $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
+    $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+    $wordpress_callback_url = add_query_arg('secret', $callback_secret, $api_url);
+    $base_url = preg_replace('/https?:\/\//', '', $api_url);
+    $available_xpub = '';
+    $partial_match = '';
+    //Go through all xpubs on the server and examine their callback url
+    foreach($response_body as $one_response){
+        $server_callback_url = isset($one_response->callback) ? $one_response->callback : '';
+        $server_base_url = preg_replace('/https?:\/\//', '', $server_callback_url);
+        $xpub = isset($one_response->address) ? $one_response->address : '';
+        if(!$server_callback_url){
+            // No callback
+            $available_xpub = $xpub;
+        }else if($server_callback_url == $wordpress_callback_url){
+            // Exact match
+            return '';
+        }
+        else if(strpos($server_base_url, $base_url) === 0 ){
+            // Partial Match - Only secret or protocol differ
+            $partial_match = $xpub;
+        }
+      }
+      // Use the available xpub
+      if($partial_match || $available_xpub){
+          $update_xpub = $partial_match ? $partial_match : $available_xpub;
+          $this->update_callback($wordpress_callback_url, $crypto, $update_xpub);
+          return '';
+      }
+      // No match and no empty callback
+      $error_str = __("Please add a new store on blockonomics website", 'edd-blockonomics');
+      return $error_str;
+  }
 
+  public function update_callback($callback_url, $crypto, $xpub)
+  {
+    $get_callback_url = $this->get_server_API_URL($crypto, EDD_Blockonomics::SET_CALLBACK_PATH);
+    $body = json_encode(array('callback' => $callback_url, 'xpub' => $xpub));
+    $response = $this->post($url, edd_get_option('edd_blockonomics_api_key'), $body);
+    return json_decode(wp_remote_retrieve_body($response));
+  }
+
+  public function test_new_address_gen($crypto, $response)
+  {
+    $error_str = '';
+    $callback_secret = edd_get_option("edd_blockonomics_callback_secret");
+    $response = $this->new_address($callback_secret, $crypto, true);
+    if ($response->response_code!=200){	
+          $error_str = $response->response_message;
+    }
+    return $error_str;
+  }
+
+  public function new_address($secret, $crypto, $reset=false)
+  {
+    $get_params = ($reset) ? "?match_callback=$secret&reset=1" : "?match_callback=$secret";
+    $url = get_server_API_URL($crypto, EDD_Blockonomics::NEW_ADDRESS_PATH) . $get_params; 
+    $response = $this->post($url, edd_get_option('edd_blockonomics_api_key'), '', 8);
+    if (!isset($responseObj)) $responseObj = new stdClass();
+    $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
+    if (wp_remote_retrieve_body($response))
+    {
+      $body = json_decode(wp_remote_retrieve_body($response));
+      $responseObj->{'response_message'} = isset($body->message) ? $body->message : '';
+      $responseObj->{'address'} = isset($body->address) ? $body->address : '';
+    }
+    return $responseObj;
+  }
+  
   public function listener()
   {
     $listener = htmlspecialchars(isset($_GET['edd-listener']) ? $_GET['edd-listener'] : '');
