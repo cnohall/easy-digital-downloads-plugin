@@ -138,20 +138,20 @@ class EDD_Blockonomics
   }
   
   public function edd_blockonomics_testsetup(){
-      $setup_errors = $this->testSetup();
-      if($setup_errors)
-      {
-        $return->type = 'error';
-        $return->message = $setup_errors['bch'];
-        echo json_encode($return);
-      }
-      else
-      {
-        $return->type = 'updated';
-        $return->message = __('Congrats ! Setup is all done', 'edd-blockonomics');
-        echo json_encode($return);
-      }
-      wp_die();
+    $setup_errors = $this->testSetup();
+    if($setup_errors)
+    {
+      $return->type = 'error';
+      $return->message = $setup_errors['bch'];
+      echo json_encode($return);
+    }
+    else
+    {
+      $return->type = 'updated';
+      $return->message = __('Congrats ! Setup is all done', 'edd-blockonomics');
+      echo json_encode($return);
+    }
+    wp_die();
   }
 
   public function register_gateway( $gateways )
@@ -313,7 +313,7 @@ class EDD_Blockonomics
     $test_results = array();
     $active_cryptos = $this->getActiveCurrencies();
     foreach ($active_cryptos as $code => $crypto) {
-        $test_results[$code] = $this->test_one_crypto($code);
+      $test_results[$code] = $this->test_one_crypto($code);
     }
     return $test_results;
   }
