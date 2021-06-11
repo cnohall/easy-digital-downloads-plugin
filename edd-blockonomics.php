@@ -326,7 +326,7 @@ class EDD_Blockonomics
     $blockonomics_currencies = $this->getSupportedCurrencies();
     foreach ($blockonomics_currencies as $code => $currency) {
         $enabled = edd_get_option('edd_blockonomics_'.$code);
-        if($enabled || ($code === 'btc' && $enabled === false )){
+        if($enabled){
             $active_currencies[$code] = $currency;
         }
     }
@@ -492,6 +492,33 @@ class EDD_Blockonomics
       $responseObj->{'address'} = isset($body->address) ? $body->address : '';
     }
     return $responseObj;
+  }
+
+  private function get($url, $api_key = '')
+  {
+    $headers = $this->set_headers($api_key);
+
+      $response = wp_remote_get( $url, array(
+          'method' => 'GET',
+          'headers' => $headers
+          )
+      );
+
+      if(is_wp_error( $response )){
+         $error_message = $response->get_error_message();
+         echo "Something went wrong: $error_message";
+      }else{
+          return $response;
+      }
+  }
+
+  private function set_headers($api_key)
+  {
+    if($api_key){
+      return 'Authorization: Bearer ' . $api_key;
+    }else{
+      return '';
+    }
   }
   
   public function listener()
