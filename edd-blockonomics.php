@@ -142,7 +142,7 @@ class EDD_Blockonomics
     if($setup_errors)
     {
       $return->type = 'error';
-      $return->message = $setup_errors['bch'];
+      $return->message = $setup_errors;
       echo json_encode($return);
     }
     else
@@ -369,8 +369,8 @@ class EDD_Blockonomics
 
   public function get_callbacks($crypto, $api_key)
   {
-      $get_callback_url = $this->get_server_API_URL($crypto, EDD_Blockonomics::GET_CALLBACKS_PATH);
-    	$response = $this->get($get_callback_url, $api_key);
+      $url = $this->get_server_API_URL($crypto, EDD_Blockonomics::GET_CALLBACKS_PATH);
+    	$response = $this->get($url, $api_key);
       return $response;
   }
 
@@ -762,6 +762,7 @@ class EDD_Blockonomics
           xhr.setRequestHeader(\'Content-Type\', \'application/x-www-form-urlencoded;\');
           xhr.send("action=testsetup");
           xhr.onload = function() {
+          console.log(this.response);
           response = JSON.parse(this.response);
           /* create notice div */
           var div = document.createElement( "div" );
