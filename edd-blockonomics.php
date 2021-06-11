@@ -426,7 +426,7 @@ class EDD_Blockonomics
   public function examine_server_callback_urls($response_body, $crypto)
   {
     $callback_secret = edd_get_option('edd_blockonomics_callback_secret', '');
-    $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+    $api_url = add_query_arg('edd-listener', 'blockonomics', home_url() );
     $wordpress_callback_url = add_query_arg('secret', $callback_secret, $api_url);
     $base_url = preg_replace('/https?:\/\//', '', $api_url);
     $available_xpub = '';
